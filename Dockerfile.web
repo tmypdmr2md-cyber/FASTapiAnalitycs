@@ -1,35 +1,59 @@
 # ──────────────────────────────────────────────────────────────
-# base: общий слой — Python, venv, зависимости
+# Multi-stage Dockerfile для FastAPI-приложения.
+#
+#   base → общий слой (Python + venv + зависимости).
+#   dev  → uvicorn с --reload, код монтируется снаружи через compose.
+#   prod → gunicorn + uvicorn workers, код вшит в образ.
+#
+# Сборка конкретной стадии:
+#   docker build -f Dockerfile.web --target dev  -t full-fastapi:dev  .
+#   docker build -f Dockerfile.web --target prod -t full-fastapi:prod .
 # ──────────────────────────────────────────────────────────────
+
+# ── base ──────────────────────────────────────────────────────
 FROM python:3.12-slim AS base
 
+# PYTHONDONTWRITEBYTECODE=1 — не плодить .pyc внутри образа.
+# PYTHONUNBUFFERED=1        — print/log сразу в stdout (видно в `docker logs`).
+# PIP_NO_CACHE_DIR=1        — pip не кэширует .whl, образ меньше.
+# PATH=/opt/venv/bin:$PATH  — бинарники из venv становятся доступны без активации.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PATH=/opt/venv/bin:$PATH
 
+# Изолированный venv внутри контейнера — отделяем зависимости приложения
+# от системного Python образа python:3.12-slim.
 RUN python -m venv /opt/venv && pip install --upgrade pip
 
+# Все последующие команды и относительные пути — в /code.
 WORKDIR /code
 
+# Сначала копируем ТОЛЬКО requirements.txt и ставим зависимости отдельным слоем.
+# Так Docker кэширует pip install и переустанавливает его лишь когда
+# меняется сам requirements.txt, а не любой файл проекта.
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# ──────────────────────────────────────────────────────────────
-# dev: uvicorn с hot-reload, код монтируется снаружи через compose
-# ──────────────────────────────────────────────────────────────
+# ── dev ───────────────────────────────────────────────────────
+# Код НЕ копируется в образ — он будет смонтирован через compose
+# (volumes: ./src:/code/src). Это нужно, чтобы изменения с хоста
+# сразу попадали внутрь контейнера и uvicorn их перезагружал.
 FROM base AS dev
 
 EXPOSE 8000
+# Дефолтная команда; в compose.yml она переопределена под порт 8002.
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
-# ──────────────────────────────────────────────────────────────
-# prod: gunicorn + uvicorn workers, код вшит в образ
-# ──────────────────────────────────────────────────────────────
+# ── prod ──────────────────────────────────────────────────────
+# Прод-стадия: код вшивается в образ, запускается gunicorn'ом
+# через ./boot/start.sh (несколько воркеров, не для разработки).
 FROM base AS prod
 
 RUN pip install gunicorn
 
+# Полный код проекта оказывается в /code (см. .dockerignore — он
+# отсекает venv, .git, кэши и т.п., чтобы образ не пух).
 COPY . .
 RUN chmod +x ./boot/start.sh
 

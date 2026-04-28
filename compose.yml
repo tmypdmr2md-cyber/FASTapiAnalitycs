@@ -1,13 +1,51 @@
+# ──────────────────────────────────────────────────────────────
+# compose.yml — dev-режим: один сервис FastAPI с hot-reload.
+# Запуск:   docker compose up --build
+# Watch:    docker compose watch   (см. секцию develop.watch внизу)
+# ──────────────────────────────────────────────────────────────
+
 services:
   app:
-    image: full-fastapi:prod
+    # Имя+тег собранного образа. Тег :dev отражает, что внутри dev-стадия.
+    image: full-fastapi:dev
+
     build:
-      context: .
-      dockerfile: Dockerfile.web
-      target: prod
+      context: .                  # что отправляется демону Docker как контекст сборки
+      dockerfile: Dockerfile.web  # какой Dockerfile использовать
+      target: dev                 # какую стадию мульти-stage сборки собрать
+
+    # Переменные окружения внутри контейнера.
+    # PORT читается ниже в `command`, чтобы держать порт в одном месте.
     environment:
-      - PORT=80
-      - WEB_CONCURRENCY=2
+      - PORT=8002
+
+    # Проброс порта: "host:container". С хоста http://localhost:8002
+    # попадает на :8002 внутри контейнера, где слушает uvicorn.
     ports:
-      - "80:80"
-    restart: unless-stopped
+      - "8002:8002"
+
+    # Переопределяем CMD из Dockerfile: вместо gunicorn — uvicorn с --reload.
+    # Модуль зовётся src.main:app, потому что WORKDIR=/code и приложение
+    # лежит в /code/src/main.py (т.е. пакет `src`, модуль `main`, объект `app`).
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8002 --reload
+
+    # Bind-mount исходников: ./src на хосте → /code/src в контейнере.
+    # uvicorn --reload видит изменения файлов и сам перезапускает процесс,
+    # поэтому пересобирать образ при правках кода не нужно.
+    volumes:
+      - ./src:/code/src:rw
+
+    # ── docker compose watch ──────────────────────────────────
+    # Эта секция активна ТОЛЬКО при `docker compose watch`,
+    # обычный `up` её игнорирует. При изменении любого из
+    # перечисленных файлов Compose пересоберёт образ и перезапустит
+    # контейнер (action: rebuild). Используется для манифестов,
+    # которые не подхватываются hot-reload'ом uvicorn.
+    develop:
+      watch:
+        - action: rebuild
+          path: Dockerfile.web
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: compose.yml

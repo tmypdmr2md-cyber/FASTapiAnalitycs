@@ -1,30 +1,28 @@
 # FASTapiAnalitycs
 
-## Docker — prod
+## Docker — dev (hot-reload)
 
-Сборка и запуск напрямую:
-
-- `docker build -t full-fastapi -f Dockerfile.web --target prod .`
-- `docker run -p 80:80 full-fastapi`
-
-Через compose (по умолчанию = prod):
+Базовый сценарий — `compose.yml` собирает dev-стадию `Dockerfile.web`,
+монтирует `./src` внутрь контейнера и запускает uvicorn с `--reload`.
 
 - `docker compose up --build`
 - `docker compose down`
 
-Открыть: <http://localhost>
+Открыть:
 
-## Docker — dev (hot-reload)
+- API: <http://localhost:8002>
+- Swagger UI: <http://localhost:8002/docs>
 
-Базовый `compose.yml` + override `compose.dev.yml`:
+При правке кода в `./src` uvicorn внутри контейнера сам перезапускается.
+Пересборка образа нужна только при изменении `requirements.txt`,
+`Dockerfile.web` или `compose.yml` — для этого можно запустить:
 
-- `docker compose -f compose.yml -f compose.dev.yml up --build`
-- `docker compose -f compose.yml -f compose.dev.yml down`
+- `docker compose watch`
 
-Код из `./src` монтируется в контейнер, uvicorn перезапускается на каждое
-изменение. Открыть: <http://localhost:8000>
+## Docker — prod (без compose)
 
+Прод-стадия собирается напрямую и запускает gunicorn + uvicorn workers
+через `./boot/start.sh`:
 
-`http://0.0.0.0:8000/docs`
-
-`http://0.0.0.0:8000`
+- `docker build -t full-fastapi:prod -f Dockerfile.web --target prod .`
+- `docker run -p 80:80 -e PORT=80 -e WEB_CONCURRENCY=2 full-fastapi:prod`
