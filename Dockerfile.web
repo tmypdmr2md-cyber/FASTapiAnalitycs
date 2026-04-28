@@ -1,0 +1,37 @@
+# ──────────────────────────────────────────────────────────────
+# base: общий слой — Python, venv, зависимости
+# ──────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PATH=/opt/venv/bin:$PATH
+
+RUN python -m venv /opt/venv && pip install --upgrade pip
+
+WORKDIR /code
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# ──────────────────────────────────────────────────────────────
+# dev: uvicorn с hot-reload, код монтируется снаружи через compose
+# ──────────────────────────────────────────────────────────────
+FROM base AS dev
+
+EXPOSE 8000
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# ──────────────────────────────────────────────────────────────
+# prod: gunicorn + uvicorn workers, код вшит в образ
+# ──────────────────────────────────────────────────────────────
+FROM base AS prod
+
+RUN pip install gunicorn
+
+COPY . .
+RUN chmod +x ./boot/start.sh
+
+EXPOSE 80
+CMD ["./boot/start.sh"]

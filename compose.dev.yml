@@ -1,0 +1,12 @@
+services:
+  app:
+    image: full-fastapi:dev
+    build:
+      target: dev
+    environment:
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/code/src
+    restart: "no"
