@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 # fastapi dev запуск приложения
+# uvicorn main:app --reload
 
 app = FastAPI()
 
