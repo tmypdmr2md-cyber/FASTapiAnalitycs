@@ -1,19 +1,31 @@
-                                                                                                                                                                         
-#   docker build -t fullfastapi .                                                                                                                                         
-#   docker run --rm -p 80:80 fullfastapi
-
 FROM python:3.12-slim
 
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+RUN pip install --upgrade pip
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    libjpeg-dev \
+    libcairo2 \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /code
 WORKDIR /code
 
-COPY requirements.txt /code/requirements.txt
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install gunicorn
 
-COPY src /code/src
+COPY . .
+
+RUN chmod +x ./boot/start.sh
 
 EXPOSE 80
 
- # fastapi run src/main.py --port 80.
-CMD ["fastapi", "run", "src/main.py", "--port", "80"] 
-          
+CMD ["./boot/start.sh"]
