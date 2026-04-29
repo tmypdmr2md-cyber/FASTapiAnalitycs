@@ -1,13 +1,11 @@
-# Точка входа FastAPI-приложения.
-# Запуск локально (без Docker):
-#   uvicorn src.main:app --reload
-# В Docker этим занимается compose.yml (dev) или ./boot/start.sh (prod).
 
 from fastapi import FastAPI
 
-# Объект `app` — то, что ищут uvicorn/gunicorn по пути `src.main:app`.
+from .api.events import router as events_router
+
 app = FastAPI()
 
+app.include_router(events_router, prefix="/api/events")
 
 @app.get("/")
 def read_root():
@@ -18,3 +16,8 @@ def read_root():
 def read_item(item_id: int, q: str | None = None):
     # item_id приходит из пути, q — опциональный query-параметр (?q=...).
     return {"item_id": item_id, "q": q}
+
+@app.get("/healthz")
+def api_health():
+    # /healthz — стандартное соглашение Kubernetes для liveness-probe.
+    return {"status": "ok"}

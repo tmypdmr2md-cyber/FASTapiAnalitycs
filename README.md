@@ -26,3 +26,10 @@
 
 - `docker build -t full-fastapi:prod -f Dockerfile.web --target prod .`
 - `docker run -p 80:80 -e PORT=80 -e WEB_CONCURRENCY=2 full-fastapi:prod`
+
+
+
+- `docker compose up --watch`
+- `docker compose down`
+- `docker compose run app /bin/bash`
+- `docker compose run app python`
