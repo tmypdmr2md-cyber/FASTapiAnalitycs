@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 # говорим в каком формате мы хотим возвращать данные
-from .schemas import EventSchema
+from .schema import EventSchema
 
 router = APIRouter() 
 
