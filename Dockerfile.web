@@ -33,7 +33,7 @@ WORKDIR /code
 # Так Docker кэширует pip install и переустанавливает его лишь когда
 # меняется сам requirements.txt, а не любой файл проекта.
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 # ── dev ───────────────────────────────────────────────────────
 # Код НЕ копируется в образ — он будет смонтирован через compose
